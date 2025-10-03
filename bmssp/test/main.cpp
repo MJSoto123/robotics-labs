@@ -2,88 +2,71 @@
 #include "./../include/graph_generator.h"
 #include "./../include/dijkstra.h"
 #include "./../include/bmssp.h"
+
 #include <iostream>
+#include <fstream>
 #include <chrono>
 #include <cmath>
 #include <limits>
+#include <string>
+#include <unordered_map>
 
-void run_single_test(int n, int m, unsigned seed = 0, Node source = 0) {
-    std::cout << "Generando grafo: n=" << n << ", m=" << m << ", seed=" << seed << "\n";
-    
+struct BenchResult {
+    double time_dij;
+    double time_bm;
+};
+
+// Versión silenciosa: devuelve tiempos y no imprime nada
+BenchResult run_single_benchmark(int n, int m, unsigned seed = 0, Node source = 0) {
+    // Generar grafo
     auto [graph, edges] = generate_sparse_directed_graph(n, m, 100.0, seed);
-    
-    double avg_deg = 0.0;
-    for (const auto& [node, adj] : graph) {
-        avg_deg += adj.size();
-    }
-    avg_deg /= n;
-    std::cout << "Grafo generado. grado promedio " << avg_deg << "\n";
-    
+
     // Dijkstra
     Instrument instr_dij;
     auto t0 = std::chrono::high_resolution_clock::now();
     auto dist_dij = dijkstra(graph, source, &instr_dij);
     auto t1 = std::chrono::high_resolution_clock::now();
     double time_dij = std::chrono::duration<double>(t1 - t0).count();
-    
-    int reachable_dij = 0;
-    for (const auto& [_, d] : dist_dij) {
-        if (std::isfinite(d)) reachable_dij++;
-    }
-    
-    std::cout << "Dijkstra: time=" << time_dij << "s, relaxations="
-              << instr_dij.relaxations << ", heap_ops=" << instr_dij.heap_ops
-              << ", reachable=" << reachable_dij << "\n";
-    
+
+    // BMSSP
     std::unordered_map<Node, Weight> dist_bm;
+    dist_bm.reserve(graph.size());
     for (const auto& [node, _] : graph) {
         dist_bm[node] = std::numeric_limits<Weight>::infinity();
     }
     dist_bm[source] = 0.0;
-    
+
     int l;
-    if (n <= 2) {
+    int n_nodes = (int)graph.size();
+    if (n_nodes <= 2) {
         l = 1;
     } else {
-        int t_guess = std::max(1, (int)std::round(std::pow(std::log(std::max(3, n)), 2.0 / 3.0)));
-        l = std::max(1, (int)std::round(std::log(std::max(3, n)) / t_guess));
+        int t_guess = std::max(1, (int)std::round(std::pow(std::log(std::max(3, n_nodes)), 2.0 / 3.0)));
+        l = std::max(1, (int)std::round(std::log(std::max(3, n_nodes)) / t_guess));
     }
-    
-    std::cout << "BMSSP params: top-level l=" << l << "\n";
-    
+
     Instrument instr_bm;
     t0 = std::chrono::high_resolution_clock::now();
-    auto [Bp, U_final] = bmssp(graph, dist_bm, edges, l,
-                                std::numeric_limits<double>::infinity(),
-                                {source}, n, &instr_bm);
+    auto [Bp, U_final] = bmssp(
+        graph, dist_bm, edges, l,
+        std::numeric_limits<double>::infinity(),
+        {source}, n_nodes, &instr_bm
+    );
     t1 = std::chrono::high_resolution_clock::now();
     double time_bm = std::chrono::duration<double>(t1 - t0).count();
-    
-    int reachable_bm = 0;
-    for (const auto& [_, d] : dist_bm) {
-        if (std::isfinite(d)) reachable_bm++;
-    }
-    
-    std::cout << "BMSSP: time=" << time_bm << "s, relaxations="
-              << instr_bm.relaxations << ", reachable=" << reachable_bm
-              << ", B'=" << Bp << ", |U_final|=" << U_final.size() << "\n";
-    
-    double max_diff = 0.0;
-    for (const auto& [v, dv] : dist_dij) {
-        double db = dist_bm[v];
-        if (std::isfinite(dv) && std::isfinite(db)) {
-            max_diff = std::max(max_diff, std::abs(dv - db));
-        }
-    }
-    
-    std::cout << "Diferencia máxima en distancias: " << max_diff << "\n";
+
+    return {time_dij, time_bm};
 }
 
 int main(int argc, char* argv[]) {
     int n = 200000;
     int m = 800000;
-    unsigned seed = 0;
-    
+    unsigned seed0 = 0;
+    int trials = 100;
+    Node source = 0;
+    std::string out_path = "benchmark_times.csv";
+
+    // CLI: -n, -m, -s (semilla base), -t (trials), -o (output)
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
         if ((arg == "-n" || arg == "--nodes") && i + 1 < argc) {
@@ -91,10 +74,33 @@ int main(int argc, char* argv[]) {
         } else if ((arg == "-m" || arg == "--edges") && i + 1 < argc) {
             m = std::atoi(argv[++i]);
         } else if ((arg == "-s" || arg == "--seed") && i + 1 < argc) {
-            seed = std::atoi(argv[++i]);
+            seed0 = std::atoi(argv[++i]);
+        } else if ((arg == "-t" || arg == "--trials") && i + 1 < argc) {
+            trials = std::atoi(argv[++i]);
+        } else if ((arg == "-o" || arg == "--output") && i + 1 < argc) {
+            out_path = argv[++i];
+        } else if ((arg == "--source") && i + 1 < argc) {
+            source = static_cast<Node>(std::atoi(argv[++i]));
         }
     }
-    
-    run_single_test(n, m, seed);
+
+    std::ofstream fout(out_path);
+    if (!fout) {
+        std::cerr << "Error: no se pudo abrir el archivo de salida: " << out_path << "\n";
+        return 1;
+    }
+
+    // Cabecera CSV
+    fout << "trial,seed,time_dijkstra,time_bmssp\n";
+
+    for (int i = 0; i < trials; ++i) {
+        unsigned seed = seed0 + static_cast<unsigned>(i);
+        BenchResult r = run_single_benchmark(n, m, seed, source);
+        fout << i << "," << seed << "," << r.time_dij << "," << r.time_bm << "\n";
+    }
+
+    fout.close();
+    // Imprime una sola línea útil para el script/CI si lo deseas
+    std::cout << "Escribí " << trials << " filas en " << out_path << "\n";
     return 0;
 }
