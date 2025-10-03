@@ -16,19 +16,15 @@ struct BenchResult {
     double time_bm;
 };
 
-// Versión silenciosa: devuelve tiempos y no imprime nada
 BenchResult run_single_benchmark(int n, int m, unsigned seed = 0, Node source = 0) {
-    // Generar grafo
     auto [graph, edges] = generate_sparse_directed_graph(n, m, 100.0, seed);
 
-    // Dijkstra
     Instrument instr_dij;
     auto t0 = std::chrono::high_resolution_clock::now();
     auto dist_dij = dijkstra(graph, source, &instr_dij);
     auto t1 = std::chrono::high_resolution_clock::now();
     double time_dij = std::chrono::duration<double>(t1 - t0).count();
 
-    // BMSSP
     std::unordered_map<Node, Weight> dist_bm;
     dist_bm.reserve(graph.size());
     for (const auto& [node, _] : graph) {
@@ -66,7 +62,6 @@ int main(int argc, char* argv[]) {
     Node source = 0;
     std::string out_path = "benchmark_times.csv";
 
-    // CLI: -n, -m, -s (semilla base), -t (trials), -o (output)
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
         if ((arg == "-n" || arg == "--nodes") && i + 1 < argc) {
@@ -90,7 +85,6 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    // Cabecera CSV
     fout << "trial,seed,time_dijkstra,time_bmssp\n";
 
     for (int i = 0; i < trials; ++i) {
@@ -100,7 +94,6 @@ int main(int argc, char* argv[]) {
     }
 
     fout.close();
-    // Imprime una sola línea útil para el script/CI si lo deseas
-    std::cout << "Escribí " << trials << " filas en " << out_path << "\n";
+    std::cout << "Output listo " << trials << " test => " << out_path << "\n";
     return 0;
 }
