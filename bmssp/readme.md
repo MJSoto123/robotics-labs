@@ -23,7 +23,9 @@ g++ -std=c++17 -O3 \
 ```
 
 ## Ejecución
+```
 ./test --graph <tipo> [opciones del grafo] [opciones generales]
+```
 ---
 
 ## Opciones generales
