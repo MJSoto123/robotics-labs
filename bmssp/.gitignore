@@ -1,0 +1,61 @@
+# Compilación de C++
+*.o
+*.obj
+*.lo
+*.la
+*.al
+*.out
+*.a
+*.so
+*.so.*
+*.dll
+*.dylib
+*.exe
+*.out
+*.app
+
+# Archivos de depuración
+*.dSYM/
+*.stackdump
+*.core
+*.gch
+*.pch
+
+# Archivos de prueba y logs
+*.log
+*.diff
+*.patch
+*.tmp
+
+# Archivos de cobertura
+*.gcno
+*.gcda
+*.gcov
+
+# Archivos de CMake / Make
+CMakeCache.txt
+CMakeFiles/
+CMakeScripts/
+Makefile
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+
+# Archivos de build en general
+build/
+bin/
+lib/
+dist/
+Debug/
+Release/
+x64/
+x86/
+
+# Archivos de IDEs
+.vscode/
+.idea/
+*.code-workspace
+
+# Archivos de sistema
+.DS_Store
+Thumbs.db
