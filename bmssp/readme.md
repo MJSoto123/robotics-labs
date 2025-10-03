@@ -1,6 +1,6 @@
 # BMSSP – Bounded Multi-Source Shortest Path (Robótica – Lab)
 
-Implementación en **C++** del algoritmo **BMSSP (Bounded Multi-Source Shortest Path)** para el laboratorio de **Robótica**.  
+Implementación en **C++** del algoritmo **BMSSP (Bounded Multi-Source Shortest Path)**.
 
 ---
 
