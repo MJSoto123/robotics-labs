@@ -8,8 +8,8 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
-USE_CUDA = False  
-FORCE_CPU = True  
+USE_CUDA = True  
+FORCE_CPU = False  
 
 def setup_cuda():
     if FORCE_CPU:

@@ -6,7 +6,7 @@ import glob
 import os
 
 MODEL_FILE = "dqn_model_cuda.pth"  
-USE_CUDA = False  
+USE_CUDA = True  
 
 GOAL_POS = [0, -0.5, 0]
 SHOW_Q_VALUES = True  
